@@ -10,6 +10,9 @@ create table if not exists public.cdt_user_data (
 
 alter table public.cdt_user_data enable row level security;
 
+revoke all on table public.cdt_user_data from anon;
+grant select, insert, update, delete on table public.cdt_user_data to authenticated;
+
 create policy "Cada docente puede leer sus datos"
 on public.cdt_user_data for select
 to authenticated
@@ -46,3 +49,35 @@ for each row execute function public.cdt_touch_updated_at();
 
 -- Los documentos de licencias se migrarán a un bucket privado llamado
 -- cdt-documentos. No crear políticas públicas: se usarán URLs firmadas.
+
+create policy "CDT subir documentos propios"
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'cdt-documentos'
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+);
+
+create policy "CDT consultar documentos propios"
+on storage.objects for select to authenticated
+using (
+  bucket_id = 'cdt-documentos'
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+);
+
+create policy "CDT actualizar documentos propios"
+on storage.objects for update to authenticated
+using (
+  bucket_id = 'cdt-documentos'
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+)
+with check (
+  bucket_id = 'cdt-documentos'
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+);
+
+create policy "CDT eliminar documentos propios"
+on storage.objects for delete to authenticated
+using (
+  bucket_id = 'cdt-documentos'
+  and (storage.foldername(name))[1] = (select auth.uid())::text
+);
